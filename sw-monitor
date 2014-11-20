@@ -1,0 +1,125 @@
+#!/bin/bash
+BASE="LVDS-0"
+OUTPUT=($(xrandr |grep "\bconnected\b" | grep -v "^$BASE"|sed "s/ .\+$//"))
+#OUTPUT=($(xrandr |grep "\bconnected\b" |sed "s/ .\+$//"))
+if [ ${#OUTPUT[@]} != 1 ]; then
+    if [ -z $OUTPUT_DEVICE ]; then
+        echo There are more then one device pluged. Please specify OUTPUT_DEVICE.
+        for (( i=0; i<${#OUTPUT[@]}; i++));
+        do
+            echo $i - ${OUTPUT[$i]}
+        done
+        exit 1
+    else
+        OUTPUT=${OUTPUT[$OUTPUT_DEVICE]}
+        if [ -z $OUTPUT ]; then
+            echo Incorrect OUTPUT_DEVICE index value.
+            exit 1
+        fi
+    fi
+fi
+
+init()
+{
+    VARS=~/.var/run/$(basename $0)
+    if [ ! -d $VARS ]; then
+        mkdir $VARS
+    fi
+    TSLOCK=$VARS/lock
+    TS=$VARS/ts
+    STATE_FILE=$VARS/state
+
+    STATES=(right left only off)
+    STATE_MESSAGES=("$OUTPUT right of $BASE" \
+                    "$OUTPUT left of $BASE"  \
+                    "only $OUTPUT" \
+                    "$OUTPUT off")
+}
+
+timestamp()
+{
+    date +%s
+}
+
+toggle() 
+{
+    #lockfile $TSLOCK
+    CURRENT=$(timestamp)
+    echo $CURRENT > $TS
+
+    if [ -s $STATE_FILE ]; then
+        STATE=$(cat $STATE_FILE) 
+        STATE=$(( ($STATE + 1) % ${#STATES[@]} ))
+    else
+        STATE=0
+    fi
+    echo $STATE >$STATE_FILE
+#    rm -f $TSLOCK
+    notify-send -t 3000 Displays "${STATE_MESSAGES[$STATE]}"
+
+    #sleep 3
+    #lockfile $TSLOCK
+    SAVED=$(cat $TS)
+#    rm -f $TSLOCK
+
+    if [ $SAVED == $CURRENT ];then 
+        $0 ${STATES[$STATE]}
+    fi
+}
+
+toggle_press()
+{
+    notify-send -t 1000 Displays "Press"
+}
+
+toggle_release()
+{
+    notify-send -t 1000 Displays "Press"
+}
+
+init
+
+case $1 in
+    right)
+        xrandr --output $BASE --auto --output $OUTPUT --auto --right-of $BASE
+    ;;
+
+    left)
+        xrandr --output $BASE --auto --output $OUTPUT --auto --left-of $BASE
+    ;;
+
+    above)
+        xrandr --output $BASE --auto --output $OUTPUT --auto --above $BASE
+    ;;
+
+    only)
+        xrandr --output $BASE --off --output $OUTPUT --auto 
+    ;;
+
+    off)
+        xrandr --output $BASE --auto --output $OUTPUT --off
+    ;;
+
+    noscrsvr)
+        xset -dpms s off
+    ;;
+
+    srcsvr)
+        xset +dpms s on
+    ;;
+
+    toggle_press)
+        toggle_press
+    ;;
+    toggle_release)
+        toggle_release
+    ;;
+
+    #*)
+    #    toggle
+    #;;
+
+    help)
+        echo "right|left|above|only|off|toggle|noscrsvr|srcvr"
+    ;;
+esac

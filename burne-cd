@@ -1,0 +1,6 @@
+#!/bin/bash
+#echo genisoimage -f -v -J -o mycd.iso /mnt/somedisk/temp
+IMAGE=$(pwd).iso
+echo genisoimage -f -v -J -o $IMAGE  $(pwd) && \
+  echo wodim dev=/dev/sr0 -eject -v $IMAGE
+
