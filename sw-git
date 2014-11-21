@@ -1,0 +1,229 @@
+#!/bin/bash
+
+SRC=/media/btrfs
+DST=/home/igk/dev
+
+PROJ=tbricks-2.6
+PREF=git
+
+##############################################################################
+
+usage()
+{
+    name=$(basename $0)
+    echo "USAGE: $name ls|sel #|sw|help|clone"
+    echo ""
+    echo "Tool to manage multiple git repositories with the same absolute path."
+    echo ""
+    echo "  [ls]        - list items"
+    echo "  #|+|sw [#]  - switch to #|next item"
+    echo "  help|-h     - show this message"
+    echo "  clone [#]   - clone #|current item"
+    echo "  delete #    - remove # item"
+}
+
+##############################################################################
+
+items()
+{
+    ls -d $SRC/* | grep "/[0-9]\+\-$PROJ"|sed "s:^$SRC/::"
+}
+
+##############################################################################
+
+ifree()
+{
+    i=0
+    for line in $(items); do
+        n=$(item_index $line)
+        if [ "$i" == "$n" ]; then
+            i=$(($i+1))
+        else
+            break
+        fi
+    done
+    echo $i
+}
+
+##############################################################################
+
+iexist()
+{
+    i=$1
+    for line in $(items); do
+        n=$(item_index $line)
+        if [ "$i" == "$n" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+##############################################################################
+
+iname()
+{
+    echo "$1-$PROJ"
+}
+
+item_index()
+{
+    echo "${line%-$PROJ}"
+}
+
+ipath()
+{
+    echo "$SRC/$(iname $1)"
+}
+
+##############################################################################
+
+index()
+{
+    i=0
+    for line in $(items); do
+        if [ "$line" == "$(current)" ]; then
+           echo $i
+           return
+        else
+            i=$(($i+1))
+        fi
+    done
+}
+
+##############################################################################
+
+current()
+{
+    if [ -h $DST/$PREF-$PROJ ]; then
+        readlink $DST/$PREF-$PROJ |sed "s:^$SRC/::"
+    fi
+}
+
+##############################################################################
+
+clone()
+{
+    frm=$1
+    if ! $(iexist $frm); then
+        echo "[Warning] Source \"$(iname $frm)\" is not exist." > /dev/stderr
+        exit 1
+    fi
+
+    to=$2
+
+    if [ -z "$to" ]; then
+        to=$(ifree)
+    fi
+
+    if $(iexist $to); then
+        echo "[Warning] Destination \"$(iname $to)\" already exist." > /dev/stderr
+        exit 1
+    fi
+    ### do clone ###
+    echo "clone $(ipath $frm) -> $(ipath $to)" > /dev/stderr
+
+    if ! btrfs subvolume snapshot "$(ipath $frm)" "$(ipath $to)"; then
+        echo "  [FAILED]" > /dev/stderr
+    fi
+
+}
+
+##############################################################################
+
+delete()
+{
+    idx=$1
+    if ! $(iexist $idx); then
+        echo "[Warning] Source \"$(iname $idx)\" is not exist." > /dev/stderr
+        exit 1
+    fi
+    if ! btrfs subvolume delete "$(ipath $idx)"; then
+        echo "[FAILED]"
+    fi
+}
+
+##############################################################################
+
+list()
+{
+    for line in $(items); do
+        branch=$(git --git-dir=$SRC/$line/.git branch | grep "^*" |sed "s/^\* //")
+        if [ "$line" == "$(current)" ]; then
+            echo "[$line] : $branch"
+        else
+            echo " $line  : $branch"
+        fi
+    done
+}
+
+##############################################################################
+
+switch()
+{
+    id=$1
+    aItems=($(items))
+    nItems=${#aItems[@]}
+    id=$(($id % nItems))
+    if [ $id -lt $nItems ]; then
+        if [ ! -z "$(current)" ]; then
+            rm $DST/$PREF-$PROJ
+        fi
+        ln -s $SRC/${aItems[$id]} $DST/$PREF-$PROJ
+    fi
+    cd .
+}
+
+##############################################################################
+
+main()
+{    
+    case $1 in
+        ls) list ;;
+
+        +)
+           switch $(($(index)+1))
+           list
+        ;;
+
+        sw) 
+           if [ -z "$2" ]; then
+               switch $(($(index)+1))
+           else
+               switch $2 
+           fi
+           list
+        ;;
+
+        [0-9]*)
+            switch $1
+            list
+        ;;
+
+        clone)
+            if [ -z "$2" ]; then
+                clone $(index)
+            else
+                clone $2 $3
+            fi
+            list
+        ;;
+
+        delete)
+            if ! [ -z "$2" ]; then
+                delete $2
+            else
+                usage;
+            fi
+        ;;
+
+        "")
+            $0 ls
+        ;;
+
+        help|-h|*) usage ;;
+    esac
+}
+main $*
+
+##############################################################################

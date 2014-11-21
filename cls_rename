@@ -1,0 +1,23 @@
+#!/bin/bash
+G="grep --include=*.[ch]pp --include=*.h --include=*.c --include=*.inl --include=*.patch -r"
+
+#SRC='  *$'
+#SRC='  *$'
+SRC=$1
+DST=$2
+if [ "$3" == "-i" ];
+then
+    G+=" -l"
+    $G "$SRC" * | xargs sed "s*$SRC*$DST*g" -i
+else
+    G+=" -n --color=always"
+    if [ ! -z $DST ]; then
+        $G "$SRC" * |sed "s*$SRC*$DST*g"
+    else
+        $G "$SRC" *
+    fi
+fi
+#SRC="\bMassQuoteHolder\b"
+#SRC="\bget_request_message\b"
+
+SRC=MassQuoteHolder

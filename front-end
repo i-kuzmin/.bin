@@ -1,12 +1,15 @@
 #!/bin/bash
 UNAME=igk
 PASS=Fahk6iej
-HOST=spb-ts1
+HOST=spb-ts1.spb.tbricks.com
+###UNAME=tbricksup
+###PASS=tbricks
+###HOST=10.88.3.148
 #HOST=at-i7
 
 PLUGINS='--plugin cliprdr'
 
-PID_FILE="/home/iku/.var/run/xfreerdp.pid"
+PID_FILE="/home/igk/.var/run/xfreerdp.pid"
 
 function get_workspace()
 {
@@ -28,9 +31,9 @@ echo $(perl -e '
 ')
 }
 
-run_xfreerdp()
+function start_xfreerdp
 {
-    xfreerdp -d '' -u $UNAME -p $PASS -g $(get_workspace) $PLUGINS $HOST 
+    xfreerdp -d '' -u $UNAME -p $PASS -g $(get_workspace) $PLUGINS $HOST 2>&1 
 }
 
 case "$1" in
@@ -43,13 +46,18 @@ case "$1" in
         fi
     ;;
 
-    "start") 
-        run_xfreerdp &>~/.var/front-end.log &
-        echo "$!" >$PID_FILE
+    "echo")
+        echo xfreerdp -d '' -u $UNAME -p $PASS -g $(get_workspace) $PLUGINS $HOST 
     ;;
 
-    "nodaemon")
-        run_xfreerdp 
+    "start") 
+        start_xfreerdp >~/.var/xfrerdp.log &
+#        xfreerdp -d '' -u $UNAME -p $PASS -g $(get_workspace) $PLUGINS $HOST 2>&1 
+        echo "$!" >$PID_FILE
+    ;;
+    
+    "nohup")
+        start_xfreerdp
     ;;
 
     "toggle")
@@ -67,7 +75,7 @@ case "$1" in
 #       xfreerdp -d "" -u $UNAME -p $PASS -g 'workarea' $PLUGINS $HOST  
 #    ;;
     "help"|"-h"|"")
-        echo "USAGE $0 start|nodaemon|stop|toggle"
+        echo "USAGE $0 start|stop|toggle|nohup"
     ;;
 esac
 # vim: set filetype=sh
