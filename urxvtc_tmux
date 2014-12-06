@@ -1,0 +1,18 @@
+#!/bin/bash
+
+if [ "$1" == "--detache" ]; then
+    detache="true"
+    shift;
+fi
+
+session=`tmux list-sessions -F "#{?session_attached,,#{session_id}}" |grep -o '$[0-9]\+' |head -1`
+
+if [ ! -z "$detache" ]; then
+    tmux -q has-session && exec tmux attach-session -d
+
+elif [ ! -z "$session" ]; then
+    tmux attach-session -t "$session"
+
+else
+    tmux new-session
+fi
