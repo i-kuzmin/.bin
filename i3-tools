@@ -1,0 +1,73 @@
+#!/bin/perl
+use JSON;
+use Data::Dumper;
+use strict;
+
+sub workspaces()
+{
+    my $cmd=`i3-msg -t get_workspaces`;
+    my @ws = @{JSON->new->utf8->decode($cmd)};
+    return @ws;
+}
+
+package WorkSpaces;
+
+sub new
+{
+    my $class = shift;
+    my $this = {
+        wss => [::workspaces()],
+    };
+    bless $this, $class;
+    return $this;
+}
+
+sub wsByName
+{
+    my ($this, $name) = @_;
+    for my $ws  (@{$this->{wss}}) {
+        print"\"$ws->{name}\" - \"$name\"\n";
+        if ( "$ws->{name}" eq "$name") {
+            return $ws;
+        }
+    }
+}
+
+sub cmd
+{
+    our $cmds;
+
+    my $this = shift;
+    my $cmd = shift;
+
+    if (defined &{$cmds->{$cmd}}) {
+        &{$cmds->{$cmd}}($this, @_);
+    } else {
+        print "Unknown cmd (\"$cmd\")";
+    }
+}
+
+our $cmds = {
+"toWS" => sub {
+    my ($this, $name, @args) = @_;
+
+    $name or die "Workspace is not defied";
+    @_ or die "Comand is not defiend";
+
+    print "\"$name\"\n";
+    my $run = "exec --no-startup-id ".join(' ', @args) if not $this->wsByName($name);
+
+    exec "i3-msg workspace $name, $run" or die "Cant execute i3-msg";
+},
+};
+
+package i3tools;
+sub main 
+{
+    my $wss = new WorkSpaces;
+    return $wss->cmd(@_);
+    return 0;
+}
+
+exit main @ARGV;
+
