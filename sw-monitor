@@ -93,11 +93,11 @@ case $1 in
     ;;
 
     only)
-        xrandr --output $BASE --off --output $OUTPUT --auto 
+        xrandr --output $BASE --off --output $OUTPUT --auto --primary 
     ;;
 
     off)
-        xrandr --output $BASE --auto --output $OUTPUT --off
+        xrandr --output $BASE --auto --primary --output $OUTPUT --off
     ;;
 
     noscrsvr)
