@@ -33,8 +33,23 @@ echo $(perl -e '
 
 function start_xfreerdp
 {
-    xfreerdp -d '' -u $UNAME -p $PASS -g $(get_workspace) $PLUGINS $HOST 2>&1 
+    xfreerdp /d:'' /u:$UNAME /p:$PASS "/size:$(get_workspace)" /clipboard:true /v:$HOST 2>&1 
 }
+
+
+while getopts ":h:" opt; do
+    case $opt in
+        h)
+            HOST=$OPTARG
+            echo "Use host=\"$HOST\""
+            ;;
+        \?)
+            echo "Invalid option: -$OPTARG" >&2
+            ;;
+    esac
+done
+
+shift $((OPTIND-1))
 
 case "$1" in
     "stop")
