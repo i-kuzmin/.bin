@@ -37,11 +37,19 @@ function start_xfreerdp
 }
 
 
-while getopts ":h:" opt; do
+while getopts ":h:u:p:" opt; do
     case $opt in
         h)
             HOST=$OPTARG
             echo "Use host=\"$HOST\""
+            ;;
+        u)
+            UNAME=$OPTARG
+            echo "Use user $UNAME"
+            ;;
+        p)
+            PASS=$OPTARG
+            echo "Use pwd $PASS"
             ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
