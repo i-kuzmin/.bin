@@ -68,7 +68,7 @@ main()
 *color15:                 S_base3
 "
     echo "$color $common" > $temp
-    xrdb -override $temp 
+    xrdb -override $temp
     rm $temp
     return 0
 }
