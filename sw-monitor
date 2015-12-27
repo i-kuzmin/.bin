@@ -28,6 +28,7 @@ init()
     TSLOCK=$VARS/lock
     TS=$VARS/ts
     STATE_FILE=$VARS/state
+    STATE_NAME_FILE=$VARS/state.name
 
     STATES=(right left only off)
     STATE_MESSAGES=("$OUTPUT right of $BASE" \
@@ -77,27 +78,42 @@ toggle_release()
     notify-send -t 1000 Displays "Press"
 }
 
+function set_last_state()
+{
+    if [ -e "$STATE_NAME_FILE" ]; then
+        local stateName=$(cat $STATE_NAME_FILE) 
+        if ! [ -z "$stateName" ]; then
+            $0 $stateName
+        fi
+    fi
+}
+
 init
 
 case $1 in
     right)
         xrandr --output $BASE --auto --output $OUTPUT --auto --right-of $BASE
+        echo right > $STATE_NAME_FILE
     ;;
 
     left)
         xrandr --output $BASE --auto --output $OUTPUT --auto --left-of $BASE
+        echo left > $STATE_NAME_FILE
     ;;
 
     above)
         xrandr --output $BASE --auto --output $OUTPUT --auto --above $BASE
+        echo above > $STATE_NAME_FILE
     ;;
 
     only)
         xrandr --output $BASE --off --output $OUTPUT --auto --primary 
+        echo only > $STATE_NAME_FILE
     ;;
 
     off)
         xrandr --output $BASE --auto --primary --output $OUTPUT --off
+        echo off > $STATE_NAME_FILE
     ;;
 
     noscrsvr)
@@ -114,6 +130,10 @@ case $1 in
     toggle_release)
         toggle_release
     ;;
+
+    last)
+        set_last_state
+    ;; 
 
     #*)
     #    toggle
