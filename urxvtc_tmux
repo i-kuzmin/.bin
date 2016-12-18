@@ -5,14 +5,14 @@ if [ "$1" == "--detache" ]; then
     shift;
 fi
 
-session=`tmux list-sessions -F "#{?session_attached,,#{session_id}}" |grep -o '$[0-9]\+' |head -1`
+session=`tmux -2 list-sessions -F "#{?session_attached,,#{session_id}}" |grep -o '$[0-9]\+' |head -1`
 
 if [ ! -z "$detache" ]; then
-    tmux -q has-session && exec tmux attach-session -d
+    tmux -2 -q has-session && exec tmux -2 attach-session -d
 
 elif [ ! -z "$session" ]; then
-    tmux attach-session -t "$session"
+    exec tmux -2 attach-session -t "$session"
 
 else
-    tmux new-session
+    exec tmux -2 new-session
 fi
