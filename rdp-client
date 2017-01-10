@@ -1,0 +1,112 @@
+#!/bin/bash
+UNAME=${UNAME:-igk}
+PASS=${PASS:-Fahk6iej}
+HOST=${HOST:-spb-ts1.ad.orcsoftware.com}
+
+#UNAME=bamboo
+#PASS=Merc~uf0
+#HOST=commando.ad.orcsoftware.com
+
+#HOST=AT-I7.ad.tbricks.com
+###UNAME=tbricksup
+###PASS=tbricks
+###HOST=10.88.3.148
+#HOST=at-i7
+
+PLUGINS='--plugin cliprdr'
+
+
+function get_workspace()
+{
+echo $(perl -e '
+    use JSON;
+    use Data::Dumper;
+    use strict;
+    my $cmd=`i3-msg -t get_workspaces`;
+    my @ws = @{JSON->new->utf8->decode($cmd)};
+
+    for my $itm (@ws) {
+        next if $itm->{focused} != JSON::PP::true;
+        my $w = $itm->{rect}->{width};
+        my $h = $itm->{rect}->{height};
+        print "${w}x${h}";
+#       print "WIDTH=$w\nHEIGHT=$h\n";
+#       print Dumper($itm);
+    }
+')
+}
+
+function start_xfreerdp
+{
+    xfreerdp /d:'' /u:$UNAME /p:$PASS "/size:$(get_workspace)" /clipboard:true /v:$HOST /cert-ignore 2>&1 
+}
+
+
+while getopts ":h:u:p:" opt; do
+    case $opt in
+        h)
+            HOST=$OPTARG
+            echo "Use host=\"$HOST\""
+            ;;
+        u)
+            UNAME=$OPTARG
+            echo "Use user $UNAME"
+            ;;
+        p)
+            PASS=$OPTARG
+            echo "Use pwd $PASS"
+            ;;
+        \?)
+            echo "Invalid option: -$OPTARG" >&2
+            ;;
+    esac
+done
+
+shift $((OPTIND-1))
+
+PID_FILE="$HOME/.var/run/xfreerdp.$HOST.pid"
+LOG_FILE="$HOME/.var/xfrerdp.$HOST.log"
+
+case "$1" in
+    "stop")
+        if [ -e "$PID_FILE" ]; then
+            kill $(cat $PID_FILE)
+            rm $PID_FILE
+        else
+            echo "Seems process wasn't started."
+        fi
+    ;;
+
+    "echo")
+        echo xfreerdp -d '' -u $UNAME -p $PASS -g $(get_workspace) $PLUGINS $HOST 
+    ;;
+
+    "start") 
+        start_xfreerdp > $LOG_FILE &
+#        xfreerdp -d '' -u $UNAME -p $PASS -g $(get_workspace) $PLUGINS $HOST 2>&1 
+        echo "$!" >$PID_FILE
+    ;;
+    
+    "nohup")
+        start_xfreerdp
+    ;;
+
+    "toggle")
+        if [ -s "$PID_FILE" ]; then
+            $0 stop
+        else
+            $0 start
+        fi ;
+
+
+    ;;
+
+#    "verbose" )
+#        VERBOSE=TRUE; $0 $@;
+#       xfreerdp -d "" -u $UNAME -p $PASS -g 'workarea' $PLUGINS $HOST  
+#    ;;
+    "help"|"-h"|"")
+        echo "USAGE $0 start|stop|toggle|nohup"
+    ;;
+esac
+# vim: set filetype=sh
