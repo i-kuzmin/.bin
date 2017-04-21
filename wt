@@ -1,0 +1,346 @@
+#!/bin/bash
+# wt - Git Wroktree + btrfs wrapper
+#
+# Ilia Kuzmin 2016 - 2017 (c)
+# i.g.kuzmin.spb@gmail.com
+
+shopt -s nullglob
+
+# Helpers --- {{{
+
+backtrace() {
+  if [ ! -z "$ENABLE_BT" ]; then
+    local i=0
+    while caller $i
+    do
+      i=$((i+1));
+    done | \
+      awk '{ printf " %-10s %s:%d\n", $2, $3, $1; }';
+  fi
+}
+
+# ------------------------------------------------------------------------------
+
+log()
+{
+  if [ "$LOG_LEVEL" -gt 0 ]; then
+    echo >/dev/stdout "$*"
+  fi
+}
+
+# ------------------------------------------------------------------------------
+
+debug()
+{
+  if [ "$LOG_LEVEL" -gt 1 ]; then
+    echo >/dev/stdout "$*"
+  fi
+}
+
+# ------------------------------------------------------------------------------
+
+run()
+{
+  local pattern="s/.\+/| &/"
+  debug $*
+  $* 2> >(sed "$pattern" >/dev/stderr) 1> >(sed "$pattern" >/dev/stdout)
+}
+
+# ------------------------------------------------------------------------------
+
+die()
+{
+  echo "FATAL:" "$*" >/dev/stderr
+  backtrace >/dev/stderr
+  exit -1;
+}
+
+# }}} --- helpers
+
+# File System (Btrfs) methods --- {{{
+
+fs_mkdir()
+# @name - new directory name
+{
+  local name=$1
+  if [ -z "$name" ]; then die "Path is not defined"; fi
+  run btrfs subvolume create "$name" || die "Can't create subvolume \"$name\""
+}
+
+# ------------------------------------------------------------------------------
+
+fs_cp()
+# Copy file system object (make a snapshot)
+# @src - source directory
+# @dst - destination directory
+{
+  local src=$1; shift;
+  local dst=$1; shift;
+
+  run btrfs subvolume snapshot "$src" "$dst" || die "Can't create snapshot"
+}
+
+# ------------------------------------------------------------------------------
+
+fs_rm()
+# Remove file system object
+# @src - source directory
+{
+  local src=$1; shift;
+  run sudo btrfs subvolume delete "$src" || die "Can't delete snapshot"
+}
+
+# ------------------------------------------------------------------------------
+
+fs_mv()
+# Move file system object
+# @src - source directory
+# @dst - destination directory
+{
+  local src=$1; shift;
+  local dst=$1; shift;
+  run mv $src $dst
+}
+
+# }}} --- btrfs ----------------------------------------------------------------
+
+# Repo (Git) methods --- {{{
+
+repo_clone()
+# @url - repository address
+# @name - destination folder name
+# creates 0-@name, with checked out @url
+#
+# creates @name.git with bare repository
+{
+  local url=$1; shift
+  local name=$1; shift
+
+  if [ -z "$url" ]; then die "Repository URL is not set"; fi
+  if [ -z "$name" ]; then die "Repository name is not set"; fi
+  if [ -e "$name.git" ]; then
+    die "Repository folder \"$name.git\" already exists"; fi
+
+  log "Git clone \"$url\" -> \"$name.git\""
+  fs_mkdir $name.git
+  run git clone --bare $url $name.git || die "Can't clone repository"
+
+  log "Creating working tree \"0-$name\""
+  fs_mkdir 0-$name
+  #run git --git-dir=$name.git branch bare master
+  #run git --git-dir=$name.git branch --delete bare
+  #run git --git-dir=$name.git symbolic-ref HEAD refs/heads/bare
+  run git --git-dir=$name.git worktree add 0-$name master
+}
+
+# -----------------------------------------------------------------------------
+
+repo_add()
+# @dst - new repository name
+# @branch - branch name for new sandbox
+{
+  local dst=$1; shift
+  local branch=$1; shift
+  if [ -z "$dst" ]; then die "Destination is not defined"; fi
+
+  run git --git-dir=$dst/.git worktree prune
+
+  log "Adjusting working tree..."
+  local src=$(cd $dst; git rev-parse --git-dir)
+  local dst_base=$(basename $dst)
+  local src_base=$(basename $src)
+
+  debug "src = \"$src\"; src_base = \"$src_base\"; dst_base = \"$dst_base\"; pwd = \"`pwd`\""
+
+  run cp -r $src $(dirname $src)/$dst_base || die "Can't clone worktree in git folder"
+  run sed -i "s:$src_base:$dst_base:" \
+    "$(dirname $src)/$dst_base/gitdir" \
+    "$dst/.git" || die "Can't adjust working tree path"
+
+  if [ ! -z "$branch" ]; then
+    run git --git-dir="$dst/.git" branch $branch
+    run git --git-dir="$dst/.git" checkout $branch
+  fi
+}
+
+# -----------------------------------------------------------------------------
+
+repo_remove()
+# @src - repository to remove
+{
+  local src=$1; shift;
+  log "Removing $src..."
+  fs_rm "$src"
+}
+
+# -----------------------------------------------------------------------------
+
+repo_branch()
+# @src - path to repository
+{
+  local src=$1; shift
+  git --git-dir="$src/.git" branch | grep "^*" |sed "s/^\* //"
+}
+
+# }}} --- git ------------------------------------------------------------------
+
+# WT methods --- {{{
+
+wt_create()
+{
+  local url="$1"; shift;
+  local name="$1"; shift;
+  if [ -z "$url" ]; then die "Repository url is not defined"; fi;
+  if [ -z "$name" ]; then die "Repository name is not defined"; fi;
+
+  if [ -e "$SRC/$name" ];  then
+    die "Repository with name \"$name\" already exists"
+  fi
+
+  local ws=$(echo $SRC/*-$name)
+  if [ ! -z "$ws" ]; then
+    die "Worktree with name \"$ws\" already exist";
+  fi
+
+  cd $SRC
+  repo_clone "$url" "$name"
+}
+
+# ------------------------------------------------------------------------------
+
+wt_clone()
+# @src - repository to clone
+# @dst - destination
+# [@branch] - branch name
+{
+  local src=$1; shift;
+  local dst=$1; shift;
+  local branch=$1; shift;
+
+  if [ -z "$src" ] || [ ! -d "$SRC/$src" ]; then
+    die "Source image doesn't exist."; fi;
+
+  if [ -z "$dst" ] || [ -d "$SRC/$dst" ]; then
+    die "Incorrect destination \"$dst\" (already exists?)"; fi;
+
+  log "Cloning \"$src\" -> \"$dst\""
+  fs_cp "$SRC/$src" "$SRC/$dst"
+
+  repo_add "$SRC/$dst" "$branch"
+
+  return 0
+}
+
+# ------------------------------------------------------------------------------
+
+wt_move()
+# @src - repository to clone
+# @dst - destination
+{
+  local src=$1; shift;
+  local dst=$1; shift;
+
+  if [ -z "$src" ] || [ ! -d "$SRC/$src" ]; then
+    die "Source image doesn't exist."; fi;
+
+  if [ -z "$dst" ] || [ -d "$SRC/$dst" ]; then
+    die "Incorrect destination \"$dst\" (already exists?)"; fi;
+
+  log "Moving \"$src\" -> \"$dst\""
+  fs_mv "$SRC/$src" "$SRC/$dst"
+
+  return 0
+}
+
+# ------------------------------------------------------------------------------
+
+wt_delete()
+# @src - repository to delete
+{
+  local src=$1; shift;
+  if [ -z "$src" ] || [ ! -d "$SRC/$src" ]; then
+    die "Source image doesn't exist."; fi;
+
+  repo_remove "$SRC/$src"
+  return 0;
+}
+
+# ------------------------------------------------------------------------------
+
+wt_list()
+# [@repo] = $REPO - repository name
+{
+  local repo=$1; shift;
+  if [ -z "$repo" ]; then
+    if [ -z "$REPO" ];
+    then repo=*;
+    else repo=$REPO; fi
+  fi
+  local sz=$((${#repo} + 3))
+  for item in $(echo $SRC/[0-9]*-$repo); do
+    debug "Process $item"
+    local branch=$(repo_branch "$item");
+    local name=${item#$SRC/}
+    printf " %${sz}s : %s\n" $name $branch
+  done
+}
+
+# }}} -- wt --------------------------------------------------------------------
+
+
+usage()
+{
+  cat <<ENDL
+NAME
+    wt - Git+Btrfs worktree wrapper
+
+SYNOPSIS
+    wt create <url> <name>    - clone remote reposetory <url> to local folder <name>
+    wt clone|cp <src> <dst>   - create workingtree copy
+    wt delete|rm <src> [src,] - remove workingtree
+    wt move|mv <src> <dst>    - rename workingtree
+    wt list|ls [<repo>]       - list workingtrees
+    wt --help|-h
+
+ENVIRONMENT
+    WT_LOG_LEVEL - logging level (default: 1)
+    WT_BACKTRACE - print backtracke when error occure (default: 1)
+    WT_REPO      - repository name (default: tb)
+    WT_ROOT      - repository root folder (default: /media/btrfs)
+    WT_CURRENT   - symbolic link to current version
+
+ENDL
+  debug "STATE:" \
+    " WT_LOG_LEVEL = $LOG_LEVEL;" \
+    " WT_BACKTRACE = $ENABLE_BT;" \
+    " WT_ROOT = $SRC;" \
+    " WT_REPO = $REPO;" 
+  exit $1
+}
+
+LOG_LEVEL=${WT_LOG_LEVEL:-1};
+ENABLE_BT=${WT_BACKTRACE:-1};
+      SRC=${WT_ROOT:-/media/btrfs};
+     REPO=${WT_REPO-tb};
+  CURRENT=${WT_CURRENT};
+
+main()
+{
+  cmd=$1; shift;
+  case $cmd in
+    create)   wt_create $* ;;
+    clone|cp) wt_clone $* ;;
+    move|mv)  wt_move $* ;;
+    list|ls)  wt_list $* ;;
+    delete|rm)
+      for repo in $*; do
+              wt_delete "$repo"
+      done;;
+    --help|-h) usage 0 ;;
+    *)         usage -1 ;;
+  esac
+  return 0
+}
+
+main $*
+# vim: fdm=marker ts=2 sw=2 et
