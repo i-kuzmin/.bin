@@ -2,7 +2,7 @@
 DO_PRINT_DEPENDS := .tbexrc .tags
 
 export TESTS := NO
-EXRC_PL := ~/.bin/tbexrc.pl
+EXRC_PL := ~/.dotfiles/bin/tbexrc.pl
 
 DO_CLEAN += rm-tags-dependency-files
 include Makefile

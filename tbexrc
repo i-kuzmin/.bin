@@ -1,2 +1,2 @@
 #!/bin/bash
-exec tbmake -f ~/.dotfiles/makefiles/Makefile.exrc -sj print-depends |grep --color=never "^#"
+exec tbmake -f ~/.dotfiles/bin/makefiles/Makefile.exrc -sj print-depends |grep --color=never "^#"
