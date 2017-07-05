@@ -3,18 +3,32 @@
 function vm_init
 {
     VM_HOST=igk@10.75.131.30
-    VM_GIT_ROOT=$(git rev-parse --show-toplevel)
-    VM_GIT_ROOT=${VM_GIT_ROOT//btrfs/btrfs-host}
+    VM_GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+    VM_GIT_ROOT=${VM_GIT_ROOT//btrfs/btrfs}
     VM_DIR=$(git rev-parse --show-prefix)
 
-    VM_ENV="JAVA_HOME=/usr/java/default; \
-            PATH+=:$VM_GIT_ROOT/build.x86_64-unknown-linux/bin/"
+    VM_ENV="export JAVA_HOME=/usr/java/default; \
+            PATH+=:$VM_GIT_ROOT/build.x86_64-unknown-linux/bin/; \
+            PATH+=:/usr/sbin/"
 }
 
 function b_default
 {
-    exec /opt/bear/bin/bear --append \
-        tbmake TESTS=${TESTS-NO} RECURSIVE=${RECURSIVE-YES} GOLD_VERSION_SUFFIX= -j $@
+    #exec /opt/bear/bin/bear --append 
+    local pass=
+    for arg in "$@"; do
+        if [ "$arg" == "--help" ]; then
+            b_help
+            exit 0
+        elif [ "$arg" == "rcn" ]; then
+            RECURSIVE=NO
+        elif [ "$arg" == "rcy" ]; then
+            RECURSIVE=YES
+        else
+            pass+=" $arg"
+        fi
+    done
+    exec  tbmake TESTS=${TESTS-NO} RECURSIVE=${RECURSIVE-YES} GOLD_VERSION_SUFFIX= -j $pass
 }
 
 function b_tmp
@@ -25,37 +39,55 @@ function b_tmp
 function b_help
 {
     echo "b              - run build"
+    echo "  rcn             - RECURSIVE=NO shorthand"
+    echo "  rcy             - RECURSIVE=YES shorthand"
     echo "b.new          - create empty project"
     echo "b.tmp          - list temporary files"
-    echo "b.vm [--tags]  - run build on vm"
+    echo "b.vm           - run build on vm"
+    echo "     --tags      - build tags on vm"
+    echo "     --run       - run cmd on vm"
+    echo "     --sw        - switch repository"
 }
 
 function b_vm
 {
     vm_init
+    local ssh="exec stdbuf -i0 -o0 -e0 ssh -x $VM_HOST -t -q"
 
-    if [ "$1" == "--tags" ]; then
-        exec ssh -x $VM_HOST "
+    if [ "$1" == "--tags" ]; then shift;
+        $ssh "
             cd $VM_GIT_ROOT;
             $VM_ENV;
             exec toolchain/x86_64-unknown-linux/bin/tbmake -C ""$VM_DIR"" \
                 -f ~/.dotfiles/bin/makefiles/Makefile.exrc -sj4 print-depends |grep --color=never "^#"
         ";
-    elif [ "$1" == "--run" ]; then
-        shift;
-        exec ssh -x $VM_HOST "
+    elif [ "$1" == "--run" ]; then shift;
+        $ssh "
             cd $VM_GIT_ROOT/$VM_DIR;
             $VM_ENV;
             "$@"
         ";
+
+    elif [ "$1" == "--sw" ]; then shift;
+        $ssh "
+            $VM_ENV;
+            ~/.dotfiles/bin/sw-git \"$@\"
+        ";
+
     else
-        exec ssh -x $VM_HOST "
+        $ssh "
             cd $VM_GIT_ROOT;
             $VM_ENV;
             exec toolchain/x86_64-unknown-linux/bin/tbmake -C ""$VM_DIR"" \
                 TESTS=${TESTS-NO} RECURSIVE=${RECURSIVE-NO} -j4 ""$@"" 
         ";
     fi
+}
+
+function b_fix_util
+{
+    cd $(git rev-parse --show-cdup)./src/libraries/util/
+    sed '/^##### Link with LLVM/,/^##### Sanity checks./s/^/#/;' Makefile  -i
 }
 
 function b_new
@@ -111,5 +143,6 @@ case $0 in
     */b.tmp) b_tmp "$@" ;;
     */b.vm)  b_vm  "$@" ;;
     */b) b_default "$@" ;;
+    */b.fix_util) b_fix_util "$@" ;;
     *) b_help ;;
 esac
