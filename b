@@ -20,9 +20,9 @@ function b_default
         if [ "$arg" == "--help" ]; then
             b_help
             exit 0
-        elif [ "$arg" == "rcn" ]; then
+        elif [ "$arg" == "RCN" ]; then
             RECURSIVE=NO
-        elif [ "$arg" == "rcy" ]; then
+        elif [ "$arg" == "RCY" ]; then
             RECURSIVE=YES
         else
             pass+=" $arg"
@@ -39,8 +39,8 @@ function b_tmp
 function b_help
 {
     echo "b              - run build"
-    echo "  rcn             - RECURSIVE=NO shorthand"
-    echo "  rcy             - RECURSIVE=YES shorthand"
+    echo "  RCN             - RECURSIVE=NO shorthand"
+    echo "  RCY             - RECURSIVE=YES shorthand"
     echo "b.new          - create empty project"
     echo "b.tmp          - list temporary files"
     echo "b.vm           - run build on vm"
