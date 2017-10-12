@@ -1,0 +1,50 @@
+#!/bin/bash
+
+COOKIES=~/.var/jira/cookies
+COOKIES=/tmp/jira.cookies
+do_wget()
+{
+    do_check_cookies
+    if [ ! -e "$COOKIES" ]; then
+        echo " -- populate cookies"
+        mkdir -p $(dirname $COOKIES)
+        echo -n "user: "; read user
+        echo -n "password: "; read -s password
+        wget --save-cookies $COOKIES --post-data \
+            "os_username=$user&os_password=$password&os_cookie=true" \
+                 http://jira.orcsoftware.com/login.jsp -O /dev/null &>/dev/null
+    fi
+
+    wget --load-cookies $COOKIES $*
+}
+
+do_clean_cookies()
+{
+    echo " -- clean cookies"
+    rm $COOKIES &>/dev/null
+}
+
+do_check_cookies()
+{
+    if [ ! -e "$COOKIES" ]; then return; fi
+    ts=$(tail +5 $COOKIES | awk '{print $5;}')
+    if [ -z "$ts" ]; then return; fi
+    if [ $ts -lt $(date +%s --utc) ]; then
+        echo " -- cookie expired"
+        do_clean_cookies
+    fi
+}
+
+main()
+{
+    case "$1" in
+        clean) shift; do_clean_cookies ;;
+        help|-h|--help) 
+            echo "Usage: <url>|clean"
+            echo "\tclean - clean cookies"
+        ;;
+        *) do_wget $* ;;
+    esac
+}
+
+main "$@"
