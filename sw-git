@@ -3,7 +3,7 @@
 SRC=/media/btrfs
 DST=/home/igk/dev
 
-PROJ=tbricks-2.6
+PROJ=tbricks
 PREF=git
 
 ##############################################################################
@@ -15,11 +15,11 @@ usage()
     echo ""
     echo "Tool to manage multiple git repositories with the same absolute path."
     echo ""
-    echo "  [ls]        - list items"
-    echo "  #|+|sw [#]  - switch to #|next item"
-    echo "  help|-h     - show this message"
-    echo "  clone [#]   - clone #|current item"
-    echo "  delete #    - remove # item"
+    echo "  [ls]            - list items"
+    echo "  #|+|sw [#]      - switch to #|next item"
+    echo "  help|-h         - show this message"
+    echo "  clone [#]       - clone #|current item"
+    echo "  remove|delete # - remove # item"
 }
 
 ##############################################################################
@@ -131,14 +131,14 @@ clone()
 
 ##############################################################################
 
-delete()
+remove()
 {
     idx=$1
     if ! $(iexist $idx); then
         echo "[Warning] Source \"$(iname $idx)\" is not exist." > /dev/stderr
         exit 1
     fi
-    if ! btrfs subvolume delete "$(ipath $idx)"; then
+    if ! sudo btrfs subvolume delete "$(ipath $idx)"; then
         echo "[FAILED]"
     fi
 }
@@ -150,9 +150,9 @@ list()
     for line in $(items); do
         branch=$(git --git-dir=$SRC/$line/.git branch | grep "^*" |sed "s/^\* //")
         if [ "$line" == "$(current)" ]; then
-            echo "[$line] : $branch"
+            printf "[%15s]: %s\n" $line $branch
         else
-            echo " $line  : $branch"
+            printf " %15s : %s\n" $line $branch
         fi
     done
 }
@@ -161,20 +161,20 @@ list()
 
 switch()
 {
-    id=$1
-    aItems=($(items))
-    nItems=${#aItems[@]}
-    id=$(($id % nItems))
-    if [ $id -lt $nItems ]; then
-        if [ ! -z "$(current)" ]; then
-            rm $DST/$PREF-$PROJ
-        fi
-        ln -s $SRC/${aItems[$id]} $DST/$PREF-$PROJ
+    idx=$1
+    if ! $(iexist $idx); then
+        echo "[Warning] Source \"$(iname $idx)\" is not exist." > /dev/stderr
+        exit 1
     fi
-    cd .
+
+    if [ ! -z "$(current)" ]; then
+        rm $DST/$PREF-$PROJ
+    fi
+    ln -s $SRC/$(iname $idx) $DST/$PREF-$PROJ
 }
 
 ##############################################################################
+
 
 main()
 {    
@@ -209,9 +209,9 @@ main()
             list
         ;;
 
-        delete)
+        remove|delete)
             if ! [ -z "$2" ]; then
-                delete $2
+                remove $2
             else
                 usage;
             fi
