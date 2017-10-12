@@ -1,5 +1,5 @@
 #!/bin/bash
-BASE="LVDS-0"
+BASE="LVDS-1"
 OUTPUT=($(xrandr |grep "\bconnected\b" | grep -v "^$BASE"|sed "s/ .\+$//"))
 #OUTPUT=($(xrandr |grep "\bconnected\b" |sed "s/ .\+$//"))
 if [ ${#OUTPUT[@]} != 1 ]; then
@@ -30,11 +30,12 @@ init()
     STATE_FILE=$VARS/state
     STATE_NAME_FILE=$VARS/state.name
 
-    STATES=(right left only off)
+    STATES=(right left only off same)
     STATE_MESSAGES=("$OUTPUT right of $BASE" \
                     "$OUTPUT left of $BASE"  \
                     "only $OUTPUT" \
-                    "$OUTPUT off")
+                    "$OUTPUT off" \
+                    "$OUTPUT same as $BASE ")
 }
 
 timestamp()
@@ -116,6 +117,11 @@ case $1 in
         echo off > $STATE_NAME_FILE
     ;;
 
+    same)
+        xrandr --output $BASE --auto --output $OUTPUT --auto --same-as $BASE
+        echo same > $STATE_NAME_FILE
+    ;;
+
     noscrsvr)
         xset -dpms s off
     ;;
@@ -140,6 +146,6 @@ case $1 in
     #;;
 
     help)
-        echo "right|left|above|only|off|toggle|noscrsvr|srcvr"
+        echo "right|left|above|only|off|toggle|noscrsvr|srcvr|same"
     ;;
 esac
