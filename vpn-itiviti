@@ -1,0 +1,3 @@
+#!/bin/bash
+#exec sudo openconnect -u igk fw-spb.orcsoftware.com
+exec sudo openconnect -u igk fw3-sthlm.orcsoftware.com
