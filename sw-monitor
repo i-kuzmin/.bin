@@ -1,5 +1,5 @@
 #!/bin/bash
-BASE="LVDS-1"
+BASE="DVI-I-1"
 OUTPUT=($(xrandr |grep "\bconnected\b" | grep -v "^$BASE"|sed "s/ .\+$//"))
 #OUTPUT=($(xrandr |grep "\bconnected\b" |sed "s/ .\+$//"))
 if [ ${#OUTPUT[@]} != 1 ]; then
@@ -117,7 +117,7 @@ case $1 in
         echo off > $STATE_NAME_FILE
     ;;
 
-    same)
+    same|mirror)
         xrandr --output $BASE --auto --output $OUTPUT --auto --same-as $BASE
         echo same > $STATE_NAME_FILE
     ;;

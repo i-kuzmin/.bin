@@ -26,7 +26,7 @@ echo $(perl -e '
     my @ws = @{JSON->new->utf8->decode($cmd)};
 
     for my $itm (@ws) {
-        next if $itm->{focused} != JSON::PP::true;
+        next if not $itm->{focused};
         my $w = $itm->{rect}->{width};
         my $h = $itm->{rect}->{height};
         print "${w}x${h}";
@@ -38,7 +38,14 @@ echo $(perl -e '
 
 function start_xfreerdp
 {
-    xfreerdp /d:'' /u:$UNAME /p:$PASS "/size:$(get_workspace)" /clipboard:true /v:$HOST /cert-ignore 2>&1 
+    xfreerdp /d:'' \
+        /u:$UNAME \
+        /p:$PASS "/size:$(get_workspace)" \
+        /clipboard:true \
+        /v:$HOST \
+        /cert-ignore \
+        /multimedia:sys:pulse \
+        2>&1 
 }
 
 
