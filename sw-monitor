@@ -1,5 +1,5 @@
 #!/bin/bash
-BASE="DVI-I-1"
+BASE="eDP1"
 OUTPUT=($(xrandr |grep "\bconnected\b" | grep -v "^$BASE"|sed "s/ .\+$//"))
 #OUTPUT=($(xrandr |grep "\bconnected\b" |sed "s/ .\+$//"))
 if [ ${#OUTPUT[@]} != 1 ]; then
@@ -23,7 +23,7 @@ init()
 {
     VARS=~/.var/run/$(basename $0)
     if [ ! -d $VARS ]; then
-        mkdir $VARS
+        mkdir -p $VARS
     fi
     TSLOCK=$VARS/lock
     TS=$VARS/ts
