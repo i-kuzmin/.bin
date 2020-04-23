@@ -1,0 +1,4 @@
+#!/bin/bash
+HOST=dev-vs2013
+export HOST
+exec rdp-client "$@"
