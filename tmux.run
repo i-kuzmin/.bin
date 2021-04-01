@@ -1,0 +1,10 @@
+#!/bin/bash
+
+session=`tmux list-sessions -F "#{?session_attached,,#{session_id}}" \
+ | grep -o '$[0-9]\+' |head -1`
+
+if [ ! -z "$session" ]; then
+    exec tmux attach-session -t "$session"
+fi
+
+exec tmux new-session
