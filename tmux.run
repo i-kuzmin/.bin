@@ -1,12 +1,8 @@
 #!/bin/bash
 
-if [ "$1" == "new" ]; then
+if [ "$1" == "new" ] || ! tmux list-sessions &>/dev/null; then
     exec tmux;
-elif [ "$1" == "attach" ]; then
-    exec tmux attach
 fi
-
-echo $1
 
 session=`tmux list-sessions -F "#{?session_attached,,#{session_id}}" \
  | grep -o '$[0-9]\+' |head -1`
@@ -15,9 +11,12 @@ session=`tmux list-sessions -F "#{?session_attached,,#{session_id}}" \
 #    session=`tmux list-sessions -F "#{?session_attached,#{session_id},}" \
 #     | grep -o '$[0-9]\+' |head -1`
 #fi
-
 if [ ! -z "$session" ]; then
     exec tmux attach-session -t "$session"
+fi
+
+if [ "$1" == "attach" ] && ! [ -z "`tmux list-sessions`" ]; then
+    exec tmux attach
 fi
 
 exec tmux
