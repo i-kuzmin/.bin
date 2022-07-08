@@ -5,6 +5,7 @@ DST=/home/igk/dev
 
 PROJ=tbricks
 PREF=git
+FS=XFS
 
 ##############################################################################
 
@@ -102,6 +103,39 @@ current()
 
 ##############################################################################
 
+if [ "$FS" == "BTRFS" ]; then
+
+  function virtual_clone
+  {
+      local src=$1; shift
+      local dst=$1; shift
+      btrfs subvolume snapshot "$src" "$dst"; 
+  }
+  
+  function virtual_remove
+  {
+      local src=$1; shift
+      sudo btrfs subvolume delete "$src"
+  }
+
+else
+
+  function virtual_clone #XFS
+  {
+      local src=$1; shift
+      local dst=$1; shift
+      cp -pRdu --reflink "$src" "$dst"
+  }
+  
+  function virtual_remove
+  {
+      local src=$1; shift
+      rm -rf $src;
+  }
+
+fi
+
+
 clone()
 {
     frm=$1
@@ -123,7 +157,7 @@ clone()
     ### do clone ###
     echo "clone $(ipath $frm) -> $(ipath $to)" > /dev/stderr
 
-    if ! btrfs subvolume snapshot "$(ipath $frm)" "$(ipath $to)"; then
+    if ! virtual_clone "$(ipath $frm)" "$(ipath $to)"; then
         echo "  [FAILED]" > /dev/stderr
     fi
 
@@ -138,7 +172,7 @@ remove()
         echo "[Warning] Source \"$(iname $idx)\" is not exist." > /dev/stderr
         exit 1
     fi
-    if ! sudo btrfs subvolume delete "$(ipath $idx)"; then
+    if ! virtual_remove "$(ipath $idx)"; then
         echo "[FAILED]"
     fi
 }
