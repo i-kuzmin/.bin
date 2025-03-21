@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SRC=/media/btrfs
-DST=/home/igk/dev
+SRC=/export/home/igk/dev
+DST=/home/igk/src
 
 PROJ=tbricks
 PREF=git
@@ -245,7 +245,9 @@ main()
 
         remove|delete)
             if ! [ -z "$2" ]; then
-                remove $2
+                while ! [ -z "$2" ]; do
+                    remove $2; shift
+                done
             else
                 usage;
             fi
