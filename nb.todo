@@ -1,0 +1,7 @@
+#!/bin/bash
+name=$(date +"notes/todo/week_%U_%Y.md")
+if ! nb edit "$name"; then
+    title=$(gdate -dmonday "+%B %d -")$(gdate -dfriday "+%B %d %Y (w%U)")
+    nb add "$name" -t "$title" --tags todo
+fi
+
