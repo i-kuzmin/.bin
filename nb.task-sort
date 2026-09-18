@@ -1,0 +1,38 @@
+#!/bin/sh
+# Sort top-level Markdown list items by prio, then urg.
+# Lower numbers sort first. Items without a tag go last.
+
+LC_ALL=C awk '
+function emit(   p,u,t,a) {
+    if (!have) return
+
+    p = 999999999
+    u = 999999999
+    if (match(head, /\[prio:[0-9][0-9]*,[:space:]*urg:[0-9][0-9]*\]/)) {
+        t = substr(head, RSTART, RLENGTH)
+        sub(/^\[prio:/, "", t)
+        sub(/,urg:/, " ", t)
+        sub(/\]$/, "", t)
+        split(t, a, " ")
+        p = a[1] + 0
+        u = a[2] + 0
+    }
+
+    # Record separator 034 preserves a whole item as one sort line.
+    printf "%09d %09d %09d %s\n", p, u, ++n, block
+}
+
+/^[*+-][[:space:]]/ || /^[0-9][0-9]*[.)][[:space:]]/ {
+    emit()
+    head = $0
+    block = $0
+    have = 1
+    next
+}
+
+{ if (have) block = block sprintf("%c", 28) $0 }
+
+END { emit() }
+' | sort -n -k1,1 -k2,2 -k3,3 \
+  | sed 's/^[0-9][0-9]* [0-9][0-9]* [0-9][0-9]* //' \
+  | tr '\034' '\n'
