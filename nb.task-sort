@@ -19,7 +19,7 @@ function emit(   p,u,t,a) {
     }
 
     # Record separator 034 preserves a whole item as one sort line.
-    printf "%09d %09d %09d %s\n", p, u, ++n, block
+    printf "%09d %09d %09d %s\n", u, p, ++n, block
 }
 
 /^[*+-][[:space:]]/ || /^[0-9][0-9]*[.)][[:space:]]/ {
